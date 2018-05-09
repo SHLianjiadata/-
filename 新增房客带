@@ -1,0 +1,37 @@
+
+--1.新增房客带
+--(修改pt)
+
+select
+GG.month_short--按月聚合
+--substring(stat_date,1,10) as `date`
+,sum(housedel_cnt) as `新增房`
+,sum(custdel_cnt) as `新增客`
+,sum(showing_cnt) as `带看`
+
+from olap.olap_sh_work_agent_di
+where
+pt between '20180201' and '20180501'
+and biz_type ='1000000000001'--买卖
+
+group by GG.month_short
+order by GG.month_short
+--group by  substring(stat_date,1,10)
+--order by substring(stat_date,1,10)
+
+left join 
+
+(select 
+
+date--日期，格式为'20000313'
+,year_weeks--一年中第几周（from 周日-周六）
+,month_short--月份
+,quarter--季度
+,year--年
+
+from dim.dim_date_info
+
+)GG on AA.dimdate =GG.date and GG.year = 2018
+
+group by GG.date
+order by GG.date
