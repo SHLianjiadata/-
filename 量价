@@ -1,0 +1,82 @@
+--按行政区、板块聚合上海链家成交量价情况
+
+select 
+    EE.name `行政区`
+    ,DD.name `板块`
+	,COUNT(1)`成交量`
+	,SUM(AA.order_price)*1.0/SUM(BB.build_area) `成交单价`
+	,SUM(AA.order_price)/COUNT(1) `套均价`
+	,SUM(BB.build_area)/COUNT(1) `套均面积`
+
+FROM 
+
+(select 
+orderid
+--,resblockid--楼盘id,匹配环线
+,housedelcode --link房源编号
+,order_price--转定价格
+,case_no --案源编号
+,order_date--转定日期
+ from
+ods.ods_dooioodw_meacasedetail_da 
+where TRADING_TYPE='二手' 
+and pt='20180506000000'
+and to_date(order_date) BETWEEN '2018-04-30' AND '2018-05-06' 
+and caseCompany='德佑'
+and signedtype=1
+and order_price >= 50 AND order_price <= 4000
+
+) AA
+
+--取面积 & 限制条件为住宅
+inner join 
+
+(select 
+ distinct
+ house_id,
+ housedel_id,
+ hdic_house_id,
+ build_area
+
+ from dw.dw_housedel_housedel_all_info_branch_da--房源宽表
+ where pt='20180506000000'
+ AND build_area >= 10 AND build_area <= 1000
+ and stat_function not in (107500000001,107500000006,107500000007,107500000008,107500000016,107500000017,107500000026)
+   --01  车库,03  普通住宅,04  别墅,05  四合院,06  写字楼,07  商业,08  工业厂房,09  平房,10  商住两用,
+   --11  新旧里弄,12  花园洋房,13  新式里弄,14  旧式里弄,15  老公寓,16  底商,17  商业办公类,18  公寓,
+   --19  酒店式公寓,20  住宅式公寓,21  公寓（住宅）,22  公寓/住宅,23  公寓/公寓,24  单身公寓（住宅）,25  服务式公寓,26  商务公寓
+ ) BB
+ on AA.housedelcode =BB.housedel_id
+
+
+left join
+
+(select 
+  house_id,
+  house_resblock_id
+  ,house_city_name
+  ,resblock_district_id--行政区id
+  ,resblock_bizcircle_id--板块ID
+  from dw.dw_house_house_all_info_branch_da--房屋宽表
+  where pt='20180506000000')CC
+  on BB.hdic_house_id=CC.house_id 
+
+left join 
+
+(select
+  id,
+  name
+ from dw.dw_house_zoning_bizcircle_da--板块表
+ where pt='20180506000000')DD 
+ on CC.resblock_bizcircle_id = DD.id
+
+left join 
+
+(select
+id,
+name
+from dw.dw_house_zoning_district_da--行政区表
+where pt='20180506000000') EE on CC.resblock_district_id = EE.id
+
+group BY  EE.name  ,DD.name 
+order by EE.name  ,DD.name 
