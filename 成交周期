@@ -1,0 +1,68 @@
+
+--3.成交周期
+--（修改日期、pt)
+select 
+GG.date--时间维度
+,SUM(DATEDIFF(to_date(AA.order_date),to_date(FF.creator_time)))*1.0/COUNT(1) AS `房源成交周期`
+,SUM(DATEDIFF(to_date(AA.order_date),to_date(BB.keyin_date)))*1.0/COUNT(1) AS `客源成交周期`
+--,count(1)
+
+from
+
+(select 
+housedelcode --link房源编号
+,case_no --案源编号
+,order_price--转定价格
+,order_date--转定日期
+,regexp_replace(to_date(order_date),'-','') as dimdate
+
+,CASE WHEN length(cast(customer_id as string))=7 
+THEN CONCAT('50701', cast(customer_id as string))
+WHEN length(cast(customer_id as string))=12
+THEN customer_id--统一客源编码
+ELSE '' END AS customer_id
+
+ from
+ods.ods_dooioodw_meacasedetail_da 
+where TRADING_TYPE='二手' 
+and pt='20180425000000'
+and to_date(order_date) BETWEEN '2018-04-01' AND '2018-04-20' 
+and caseCompany='德佑'
+and signedtype=1) AA
+
+left join
+
+(SELECT
+cust_id ---客户ID，为客源编码的主键
+,keyin_date--录入时间,原来在堡垒机用的‘最后一次拉私时间’
+,row_number() over (partition by cust_id order by keyin_date desc) as rn1
+from dw.dw_cust_custdel_all_info_branch_da --客源宽表
+where pt='20180425000000')BB on AA.customer_id =BB. cust_id and BB.rn1=1--最后一次录入时间
+
+left join
+
+(select 
+house_id
+,housedel_id
+,creator_time
+,row_number() over (partition by house_id order by creator_time desc) as rn2
+from dw.dw_housedel_housedel_all_info_branch_da --房源宽表
+where pt='20180425000000') FF on AA.housedelcode =FF.housedel_id and FF.rn2=1--最后一次挂牌时间
+
+--以下为北京的时间维度表，根据自身获取时间段选取字段
+left join 
+
+(select 
+
+date--日期，格式为'20000313'
+,year_weeks--一年中第几周（from 周日-周六）
+,month_short--月份
+,quarter--季度
+,year--年
+
+from dim.dim_date_info
+
+)GG on AA.dimdate =GG.date and GG.year = 2018
+
+group by GG.date
+order by GG.date
