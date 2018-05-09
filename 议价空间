@@ -1,0 +1,54 @@
+--2.议价空间
+--(修改日期、pt)
+select 
+
+(lastap-orderap)/lastap  as `议价空间`
+
+from 
+
+(select
+
+sum(DD.total_price)*1.0/10000/sum(CC.floor_area) as lastap
+,sum(AA.order_price)*1.0/sum(CC.floor_area) as orderap
+,count(1)
+
+from 
+
+(select 
+housedelcode --link房源编号
+,case_no --案源编号
+,order_price--转定价格
+,order_date
+ from
+ods.ods_dooioodw_meacasedetail_da 
+where TRADING_TYPE='二手' 
+and pt='20180312000000'
+and to_date(order_date) BETWEEN '2018-03-05' AND '2018-03-11' 
+and caseCompany='德佑'
+and signedtype=1) AA 
+
+
+left join 
+
+(select 
+ distinct
+ house_id,
+ housedel_id,
+ floor_area
+
+ from dw.dw_hdel_housedel_da--房源表
+ where pt='20180312000000'
+ AND floor_area >= 10 AND floor_area <= 1000) CC
+ on AA.housedelcode =CC.housedel_id
+
+
+left join 
+
+(SELECT 
+housedel_id,
+total_price
+from dim.dim_house_SCD_di 
+WHERE type = 'Current'-- iseedeadpeople
+) DD ON AA.housedelcode=DD.housedel_id
+
+) EE
